@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NCM 转 MP3 工具</title>
+    <script src="https://cdn.jsdelivr.net/npm/aes-js@3.1.2/index.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -177,15 +178,8 @@
             const keyEnc = new Uint8Array(buf, offset, keyLen);
             offset += keyLen;
 
-            // 解密密钥（异或）
-            const coreKey = hexToBytes('687A4852416D735F356B496E62617857');
-            const xored = new Uint8Array(keyEnc.length);
-            for (let i = 0; i < keyEnc.length; i++) {
-                xored[i] = keyEnc[i] ^ coreKey[i % 16];
-            }
-
-            // 用 Web Crypto API AES-ECB 解密
-            const key = await aesEcbDecrypt(xored, coreKey);
+            // 解密密钥
+            const key = decryptNcmKey(keyEnc);
 
             // 跳过元数据
             const metaLen = view.getUint32(offset, true);
@@ -203,26 +197,23 @@
             return new Blob([rc4Decrypt(audioData, key)], { type: 'audio/mpeg' });
         }
 
-        // Web Crypto API AES-128-ECB 解密
-        async function aesEcbDecrypt(data, key) {
-            // 去除 PKCS7 填充
-            const padLen = data[data.length - 1];
-            const dataNoPad = data.slice(0, data.length - padLen);
+        function decryptNcmKey(keyEnc) {
+            // 核心密钥
+            const coreKey = hexToBytes('687A4852416D735F356B496E62617857');
 
-            const cryptoKey = await crypto.subtle.importKey(
-                'raw', key, { name: 'AES-CBC', length: 128 }, false, ['decrypt']
-            );
+            // 异或解密
+            const xored = new Uint8Array(keyEnc.length);
+            for (let i = 0; i < keyEnc.length; i++) {
+                xored[i] = keyEnc[i] ^ coreKey[i % 16];
+            }
 
-            // ECB 模式浏览器不支持，用 CBC + 全零 IV 模拟
-            const iv = new Uint8Array(16);
-            const decrypted = await crypto.subtle.decrypt(
-                { name: 'AES-CBC', iv: iv },
-                cryptoKey,
-                dataNoPad
-            );
+            // 用 aes-js 库 AES-128-ECB 解密
+            const aesEcb = new aesjs.ModeOfOperation.ecb(coreKey);
+            const decrypted = aesEcb.decrypt(xored);
 
-            const result = new Uint8Array(decrypted);
-            return result.reverse();
+            // 去除 PKCS7 填充并反转
+            const padLen = decrypted[decrypted.length - 1];
+            return decrypted.slice(0, decrypted.length - padLen).reverse();
         }
 
         function rc4Decrypt(data, key) {
