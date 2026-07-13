@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NCM 转 MP3 工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            background-image: url('bg.jpg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            min-height: 100vh;
+            padding: 40px 20px;
+            position: relative;
+        }
+        
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.2);
+            z-index: -1;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.65);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        
+        .upload-area {
+            border: 2px dashed #667eea;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: rgba(255,255,255,0.3);
+        }
+        
+        .upload-area:hover {
+            background: rgba(255,255,255,0.5);
+            border-color: #764ba2;
+        }
+        
+        .upload-area.dragover {
+            background: rgba(102, 126, 234, 0.2);
+            border-color: #667eea;
+        }
+        
+        .upload-icon {
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(0,0,0,0.1);
+            border-radius: 4px;
+            margin-top: 20px;
+            overflow: hidden;
+            display: none;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.3s;
+            border-radius: 4px;
+        }
+        
+        .status {
+            text-align: center;
+            margin-top: 15px;
+            color: #555;
+            font-size: 0.9em;
+        }
+        
+        .download-btn {
+            display: none;
+            width: 100%;
+            padding: 12px;
+            margin-top: 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .download-btn:hover {
+            background: #764ba2;
+            transform: scale(1.02);
+        }
+        
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+            color: white;
+            text-decoration: none;
+            opacity: 0.8;
+        }
+        
+        .back-link:hover {
+            opacity: 1;
+        }
+        
+        .file-list {
+            margin-top: 15px;
+            font-size: 0.85em;
+            color: #555;
+        }
+        
+        .file-list li {
+            padding: 5px 0;
+            list-style: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎵 NCM 转 MP3</h1>
+            <p>网易云音乐格式转换工具</p>
+        </div>
+        
+        <div class="card">
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📁</div>
+                <p>点击选择文件 或 拖拽 NCM 文件到这里</p>
+                <p style="color: #888; font-size: 0.85em; margin-top: 8px;">支持批量转换</p>
+                <input type="file" class="file-input" id="fileInput" accept=".ncm" multiple>
+            </div>
+            
+            <div class="progress-bar" id="progressBar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            
+            <div class="status" id="status">等待选择文件...</div>
+            
+            <ul class="file-list" id="fileList"></ul>
+            
+            <button class="download-btn" id="downloadBtn">下载转换后的文件</button>
+        </div>
+        
+        <a href="index.html" class="back-link">← 返回主页</a>
+    </div>
+
+    <script>
+        // NCM 解密核心代码
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const progressBar = document.getElementById('progressBar');
+        const progressFill = document.getElementById('progressFill');
+        const status = document.getElementById('status');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const fileList = document.getElementById('fileList');
+        
+        let convertedFiles = [];
+        
+        // 点击上传
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        // 拖拽上传
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+        
+        async function handleFiles(files) {
+            if (files.length === 0) return;
+            
+            convertedFiles = [];
+            fileList.innerHTML = '';
+            progressBar.style.display = 'block';
+            downloadBtn.style.display = 'none';
+            
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                if (!file.name.endsWith('.ncm')) {
+                    addFileStatus(file.name, '❌ 不是 NCM 格式');
+                    continue;
+                }
+                
+                updateProgress((i / files.length) * 100);
+                status.textContent = `正在转换: ${file.name}...`;
+                
+                try {
+                    const mp3Blob = await convertNCM(file);
+                    const mp3Name = file.name.replace('.ncm', '.mp3');
+                    convertedFiles.push({ blob: mp3Blob, name: mp3Name });
+                    addFileStatus(mp3Name, '✅ 转换成功');
+                } catch (err) {
+                    addFileStatus(file.name, `❌ 转换失败: ${err.message}`);
+                }
+            }
+            
+            updateProgress(100);
+            
+            if (convertedFiles.length > 0) {
+                status.textContent = `转换完成！共 ${convertedFiles.length} 个文件`;
+                downloadBtn.style.display = 'block';
+                
+                if (convertedFiles.length === 1) {
+                    downloadBtn.textContent = `下载 ${convertedFiles[0].name}`;
+                } else {
+                    downloadBtn.textContent = `下载全部 (${convertedFiles.length} 个文件)`;
+                }
+            } else {
+                status.textContent = '没有成功转换的文件';
+                progressBar.style.display = 'none';
+            }
+        }
+        
+        function addFileStatus(name, result) {
+            const li = document.createElement('li');
+            li.textContent = `${result} ${name}`;
+            fileList.appendChild(li);
+        }
+        
+        function updateProgress(percent) {
+            progressFill.style.width = percent + '%';
+        }
+        
+        // NCM 解密核心算法
+        async function convertNCM(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const dataView = new DataView(arrayBuffer);
+            
+            // 检查 NCM 文件头
+            const header = new Uint8Array(arrayBuffer, 0, 8);
+            const magic = 'CTENFDAM';
+            for (let i = 0; i < 8; i++) {
+                if (header[i] !== magic.charCodeAt(i)) {
+                    throw new Error('不是有效的 NCM 文件');
+                }
+            }
+            
+            // 跳过文件头
+            let offset = 10;
+            
+            // 读取密钥长度
+            const keyLen = dataView.getUint32(offset, true);
+            offset += 4;
+            
+            // 读取加密密钥
+            const keyData = new Uint8Array(arrayBuffer, offset, keyLen);
+            offset += keyLen;
+            
+            // 解密密钥
+            const key = decryptKey(keyData);
+            
+            // 读取元数据长度
+            const metaLen = dataView.getUint32(offset, true);
+            offset += 4;
+            
+            // 跳过元数据
+            offset += metaLen;
+            
+            // 跳过 CRC 和填充
+            offset += 9;
+            
+            // 读取图片长度
+            const imgLen = dataView.getUint32(offset, true);
+            offset += 4;
+            
+            // 跳过图片
+            offset += imgLen;
+            
+            // 剩余是加密音频数据
+            const audioData = new Uint8Array(arrayBuffer, offset);
+            
+            // 解密音频
+            const decrypted = decryptAudio(audioData, key);
+            
+            return new Blob([decrypted], { type: 'audio/mpeg' });
+        }
+        
+        function decryptKey(keyData) {
+            // 核心密钥
+            const coreKey = [0x68, 0x7A, 0x48, 0x52, 0x41, 0x6D, 0x73, 0x6F, 0x35, 0x6B, 0x49, 0x6E, 0x62, 0x61, 0x78, 0x57];
+            
+            // 异或解密
+            for (let i = 0; i < keyData.length; i++) {
+                keyData[i] ^= coreKey[i % coreKey.length];
+            }
+            
+            // 反转
+            return keyData.reverse();
+        }
+        
+        function decryptAudio(audioData, key) {
+            const decrypted = new Uint8Array(audioData.length);
+            const box = buildKeyBox(key);
+            
+            for (let i = 0; i < audioData.length; i++) {
+                const j = (i + 1) & 0xff;
+                decrypted[i] = audioData[i] ^ box[(box[j] + box[(box[j] + j) & 0xff]) & 0xff];
+            }
+            
+            return decrypted;
+        }
+        
+        function buildKeyBox(key) {
+            const box = new Uint8Array(256);
+            for (let i = 0; i < 256; i++) {
+                box[i] = i;
+            }
+            
+            let j = 0;
+            for (let i = 0; i < 256; i++) {
+                j = (j + box[i] + key[i % key.length]) & 0xff;
+                [box[i], box[j]] = [box[j], box[i]];
+            }
+            
+            return box;
+        }
+        
+        // 下载功能
+        downloadBtn.addEventListener('click', () => {
+            if (convertedFiles.length === 1) {
+                downloadFile(convertedFiles[0]);
+            } else {
+                // 多个文件打包下载（简化版：逐个下载）
+                convertedFiles.forEach((file, index) => {
+                    setTimeout(() => downloadFile(file), index * 500);
+                });
+            }
+        });
+        
+        function downloadFile(file) {
+            const url = URL.createObjectURL(file.blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = file.name;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
