@@ -5,11 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NCM 转 MP3 工具</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
@@ -25,29 +21,20 @@
         body::before {
             content: '';
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
             background: rgba(0, 0, 0, 0.2);
             z-index: -1;
         }
         
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-        }
+        .container { max-width: 600px; margin: 0 auto; }
         
         .header {
             text-align: center;
             color: white;
             margin-bottom: 30px;
         }
-        
-        .header h1 {
-            font-size: 2em;
-            margin-bottom: 10px;
-        }
+        .header h1 { font-size: 2em; margin-bottom: 10px; }
         
         .card {
             background: rgba(255, 255, 255, 0.65);
@@ -68,36 +55,25 @@
             transition: all 0.3s;
             background: rgba(255,255,255,0.3);
         }
-        
         .upload-area:hover {
             background: rgba(255,255,255,0.5);
             border-color: #764ba2;
         }
-        
         .upload-area.dragover {
             background: rgba(102, 126, 234, 0.2);
             border-color: #667eea;
         }
-        
-        .upload-icon {
-            font-size: 3em;
-            margin-bottom: 10px;
-        }
-        
-        .file-input {
-            display: none;
-        }
+        .upload-icon { font-size: 3em; margin-bottom: 10px; }
+        .file-input { display: none; }
         
         .progress-bar {
-            width: 100%;
-            height: 8px;
+            width: 100%; height: 8px;
             background: rgba(0,0,0,0.1);
             border-radius: 4px;
             margin-top: 20px;
             overflow: hidden;
             display: none;
         }
-        
         .progress-fill {
             height: 100%;
             background: linear-gradient(90deg, #667eea, #764ba2);
@@ -126,11 +102,7 @@
             cursor: pointer;
             transition: all 0.3s;
         }
-        
-        .download-btn:hover {
-            background: #764ba2;
-            transform: scale(1.02);
-        }
+        .download-btn:hover { background: #764ba2; transform: scale(1.02); }
         
         .back-link {
             display: block;
@@ -140,21 +112,12 @@
             text-decoration: none;
             opacity: 0.8;
         }
+        .back-link:hover { opacity: 1; }
         
-        .back-link:hover {
-            opacity: 1;
-        }
-        
-        .file-list {
-            margin-top: 15px;
-            font-size: 0.85em;
-            color: #555;
-        }
-        
-        .file-list li {
-            padding: 5px 0;
-            list-style: none;
-        }
+        .file-list { margin-top: 15px; font-size: 0.85em; }
+        .file-list li { padding: 5px 0; list-style: none; }
+        .error { color: #d63031; }
+        .success { color: #27ae60; }
     </style>
 </head>
 <body>
@@ -177,9 +140,7 @@
             </div>
             
             <div class="status" id="status">等待选择文件...</div>
-            
             <ul class="file-list" id="fileList"></ul>
-            
             <button class="download-btn" id="downloadBtn">下载转换后的文件</button>
         </div>
         
@@ -187,7 +148,6 @@
     </div>
 
     <script>
-        // NCM 解密核心代码
         const uploadArea = document.getElementById('uploadArea');
         const fileInput = document.getElementById('fileInput');
         const progressBar = document.getElementById('progressBar');
@@ -198,28 +158,20 @@
         
         let convertedFiles = [];
         
-        // 点击上传
         uploadArea.addEventListener('click', () => fileInput.click());
         
-        // 拖拽上传
         uploadArea.addEventListener('dragover', (e) => {
             e.preventDefault();
             uploadArea.classList.add('dragover');
         });
-        
-        uploadArea.addEventListener('dragleave', () => {
-            uploadArea.classList.remove('dragover');
-        });
-        
+        uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
         uploadArea.addEventListener('drop', (e) => {
             e.preventDefault();
             uploadArea.classList.remove('dragover');
             handleFiles(e.dataTransfer.files);
         });
         
-        fileInput.addEventListener('change', (e) => {
-            handleFiles(e.target.files);
-        });
+        fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
         
         async function handleFiles(files) {
             if (files.length === 0) return;
@@ -231,8 +183,8 @@
             
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
-                if (!file.name.endsWith('.ncm')) {
-                    addFileStatus(file.name, '❌ 不是 NCM 格式');
+                if (!file.name.toLowerCase().endsWith('.ncm')) {
+                    addFileStatus(file.name, '❌ 不是 NCM 格式', 'error');
                     continue;
                 }
                 
@@ -240,12 +192,13 @@
                 status.textContent = `正在转换: ${file.name}...`;
                 
                 try {
-                    const mp3Blob = await convertNCM(file);
-                    const mp3Name = file.name.replace('.ncm', '.mp3');
-                    convertedFiles.push({ blob: mp3Blob, name: mp3Name });
-                    addFileStatus(mp3Name, '✅ 转换成功');
+                    const result = await convertNCM(file);
+                    const mp3Name = file.name.replace(/\.ncm$/i, '.mp3');
+                    convertedFiles.push({ blob: result, name: mp3Name });
+                    addFileStatus(mp3Name, '✅ 转换成功', 'success');
                 } catch (err) {
-                    addFileStatus(file.name, `❌ 转换失败: ${err.message}`);
+                    addFileStatus(file.name, `❌ 失败: ${err.message}`, 'error');
+                    console.error(err);
                 }
             }
             
@@ -254,20 +207,18 @@
             if (convertedFiles.length > 0) {
                 status.textContent = `转换完成！共 ${convertedFiles.length} 个文件`;
                 downloadBtn.style.display = 'block';
-                
-                if (convertedFiles.length === 1) {
-                    downloadBtn.textContent = `下载 ${convertedFiles[0].name}`;
-                } else {
-                    downloadBtn.textContent = `下载全部 (${convertedFiles.length} 个文件)`;
-                }
+                downloadBtn.textContent = convertedFiles.length === 1 
+                    ? `下载 ${convertedFiles[0].name}` 
+                    : `下载全部 (${convertedFiles.length} 个)`;
             } else {
                 status.textContent = '没有成功转换的文件';
                 progressBar.style.display = 'none';
             }
         }
         
-        function addFileStatus(name, result) {
+        function addFileStatus(name, result, cls) {
             const li = document.createElement('li');
+            li.className = cls;
             li.textContent = `${result} ${name}`;
             fileList.appendChild(li);
         }
@@ -276,122 +227,114 @@
             progressFill.style.width = percent + '%';
         }
         
-        // NCM 解密核心算法
+        // ==================== NCM 解密核心 ====================
+        
         async function convertNCM(file) {
-            const arrayBuffer = await file.arrayBuffer();
-            const dataView = new DataView(arrayBuffer);
+            const buf = await file.arrayBuffer();
+            const view = new DataView(buf);
             
-            // 检查 NCM 文件头
-            const header = new Uint8Array(arrayBuffer, 0, 8);
-            const magic = 'CTENFDAM';
+            // 1. 检查文件头 "CTENFDAM"
+            const header = 'CTENFDAM';
             for (let i = 0; i < 8; i++) {
-                if (header[i] !== magic.charCodeAt(i)) {
-                    throw new Error('不是有效的 NCM 文件');
+                if (view.getUint8(i) !== header.charCodeAt(i)) {
+                    throw new Error('文件头不匹配，不是标准 NCM 文件');
                 }
             }
             
-            // 跳过文件头
-            let offset = 10;
+            let offset = 10; // 跳过 8 字节头 + 2 字节未知
             
-            // 读取密钥长度
-            const keyLen = dataView.getUint32(offset, true);
+            // 2. 读取密钥
+            const keyLen = view.getUint32(offset, true);
             offset += 4;
-            
-            // 读取加密密钥
-            const keyData = new Uint8Array(arrayBuffer, offset, keyLen);
+            const keyEnc = new Uint8Array(buf, offset, keyLen);
             offset += keyLen;
             
-            // 解密密钥
-            const key = decryptKey(keyData);
+            // 3. 解密密钥
+            const key = aes128EcbDecrypt(keyEnc);
             
-            // 读取元数据长度
-            const metaLen = dataView.getUint32(offset, true);
+            // 4. 读取元数据
+            const metaLen = view.getUint32(offset, true);
             offset += 4;
+            offset += metaLen; // 跳过元数据
             
-            // 跳过元数据
-            offset += metaLen;
-            
-            // 跳过 CRC 和填充
+            // 5. 跳过 CRC (5字节) + 填充 (4字节)
             offset += 9;
             
-            // 读取图片长度
-            const imgLen = dataView.getUint32(offset, true);
+            // 6. 跳过封面图片
+            const imgLen = view.getUint32(offset, true);
             offset += 4;
-            
-            // 跳过图片
             offset += imgLen;
             
-            // 剩余是加密音频数据
-            const audioData = new Uint8Array(arrayBuffer, offset);
+            // 7. 剩余是加密音频
+            const audioData = new Uint8Array(buf, offset);
             
-            // 解密音频
-            const decrypted = decryptAudio(audioData, key);
+            // 8. RC4 解密音频
+            const decrypted = rc4Decrypt(audioData, key);
             
             return new Blob([decrypted], { type: 'audio/mpeg' });
         }
         
-        function decryptKey(keyData) {
-            // 核心密钥
-            const coreKey = [0x68, 0x7A, 0x48, 0x52, 0x41, 0x6D, 0x73, 0x6F, 0x35, 0x6B, 0x49, 0x6E, 0x62, 0x61, 0x78, 0x57];
+        // AES-128-ECB 解密（NCM 密钥加密方式）
+        function aes128EcbDecrypt(data) {
+            const coreKey = new Uint8Array([
+                0x68, 0x7A, 0x48, 0x52, 0x41, 0x6D, 0x73, 0x6F,
+                0x35, 0x6B, 0x49, 0x6E, 0x62, 0x61, 0x78, 0x57
+            ]);
             
             // 异或解密
-            for (let i = 0; i < keyData.length; i++) {
-                keyData[i] ^= coreKey[i % coreKey.length];
+            const decrypted = new Uint8Array(data.length);
+            for (let i = 0; i < data.length; i++) {
+                decrypted[i] = data[i] ^ coreKey[i % 16];
             }
             
-            // 反转
-            return keyData.reverse();
+            // 去除 PKCS7 填充并反转
+            const padLen = decrypted[decrypted.length - 1];
+            const unpadded = decrypted.slice(0, decrypted.length - padLen);
+            return unpadded.reverse();
         }
         
-        function decryptAudio(audioData, key) {
-            const decrypted = new Uint8Array(audioData.length);
-            const box = buildKeyBox(key);
-            
-            for (let i = 0; i < audioData.length; i++) {
-                const j = (i + 1) & 0xff;
-                decrypted[i] = audioData[i] ^ box[(box[j] + box[(box[j] + j) & 0xff]) & 0xff];
-            }
-            
-            return decrypted;
-        }
-        
-        function buildKeyBox(key) {
-            const box = new Uint8Array(256);
-            for (let i = 0; i < 256; i++) {
-                box[i] = i;
-            }
+        // RC4 解密音频
+        function rc4Decrypt(data, key) {
+            const S = new Uint8Array(256);
+            for (let i = 0; i < 256; i++) S[i] = i;
             
             let j = 0;
             for (let i = 0; i < 256; i++) {
-                j = (j + box[i] + key[i % key.length]) & 0xff;
-                [box[i], box[j]] = [box[j], box[i]];
+                j = (j + S[i] + key[i % key.length]) & 0xFF;
+                [S[i], S[j]] = [S[j], S[i]];
             }
             
-            return box;
-        }
-        
-        // 下载功能
-        downloadBtn.addEventListener('click', () => {
-            if (convertedFiles.length === 1) {
-                downloadFile(convertedFiles[0]);
-            } else {
-                // 多个文件打包下载（简化版：逐个下载）
-                convertedFiles.forEach((file, index) => {
-                    setTimeout(() => downloadFile(file), index * 500);
-                });
+            let i = 0, k;
+            j = 0;
+            const out = new Uint8Array(data.length);
+            
+            for (let n = 0; n < data.length; n++) {
+                i = (i + 1) & 0xFF;
+                j = (j + S[i]) & 0xFF;
+                [S[i], S[j]] = [S[j], S[i]];
+                k = S[(S[i] + S[j]) & 0xFF];
+                out[n] = data[n] ^ k;
             }
-        });
-        
-        function downloadFile(file) {
-            const url = URL.createObjectURL(file.blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = file.name;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            
+            return out;
         }
+        
+        // ==================== 下载 ====================
+        
+        downloadBtn.addEventListener('click', () => {
+            convertedFiles.forEach((file, index) => {
+                setTimeout(() => {
+                    const url = URL.createObjectURL(file.blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = file.name;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, index * 500);
+            });
+        });
     </script>
 </body>
 </html>
